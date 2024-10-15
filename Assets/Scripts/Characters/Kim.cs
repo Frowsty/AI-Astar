@@ -49,7 +49,12 @@ public class Kim : CharacterController
             new(area, 0),
             new(-area, 0),
             new(0, area),
-            new(0, -area)
+            new(0, -area),
+            new(area, area),
+            new(-area, -area),
+            new(-area, area),
+            new(area, -area),
+            
         };
         
         List<Grid.Tile> neighbours = new List<Grid.Tile>();
