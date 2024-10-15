@@ -13984,13 +13984,18 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3846718407826640484, guid: e74821599e1428f4fb096b33ee329de8,
         type: 3}
+      propertyPath: TargetIndex
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3846718407826640484, guid: e74821599e1428f4fb096b33ee329de8,
+        type: 3}
       propertyPath: FleeDistance
       value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3846718407826640484, guid: e74821599e1428f4fb096b33ee329de8,
         type: 3}
       propertyPath: ContextRadius
-      value: 5
+      value: 30
       objectReference: {fileID: 0}
     - target: {fileID: 3846718407826640484, guid: e74821599e1428f4fb096b33ee329de8,
         type: 3}

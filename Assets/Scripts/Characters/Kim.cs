@@ -1,29 +1,45 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Unity.VisualScripting;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.XR;
 
 public class Kim : CharacterController
 {
-    [SerializeField] float ContextRadius;
-    private Grid.Tile Seeker;
+    [SerializeField] float ContextRadius = 40f;
+    private Grid.Tile startTile;
     public Burger[] Burgers;
     private List<Grid.Tile> Targets = new List<Grid.Tile>();
+    private List<Zombie> Zombies = new List<Zombie>();
+    public bool shouldUpdatePath = true;
     public int TargetIndex = 0;
+    private List<Grid.Tile> path = new List<Grid.Tile>();
+    private List<Zombie> closestZombies = new List<Zombie>();
 
     public override void StartCharacter()
     {
         base.StartCharacter();
+
+        ContextRadius = 40f;
         
         Targets.Add(Grid.Instance.GetClosest(Burgers[0].transform.position));
         Targets.Add(Grid.Instance.GetClosest(Burgers[1].transform.position));
         Targets.Add(Grid.Instance.GetFinishTile());
-        
-        //Seeker = Grid.Instance.GetClosest(transform.position);
-    }
 
+        foreach (GameObject obj in GameObject.FindGameObjectsWithTag("Zombie"))
+        {
+            Zombie zombie = obj.GetComponent<Zombie>();
+            
+            if (zombie != null)
+                Zombies.Add(zombie);
+        }
+
+        startTile = myCurrentTile;
+    }
+    
     public List<Grid.Tile> GetNeighbours(Grid.Tile tile)
     {
         Vector2Int[] neighbourDirs = {
@@ -44,7 +60,6 @@ public class Kim : CharacterController
         
         return neighbours;
     }
-
     int GetDistance(Grid.Tile tile1, Grid.Tile tile2)
     {
         int distanceX = Mathf.Abs(tile1.x - tile2.x);
@@ -54,6 +69,19 @@ public class Kim : CharacterController
             return 14 * distanceY + 10 * (distanceX - distanceY);
         else
             return 14 * distanceX + 10 * (distanceY - distanceX);
+    }
+    
+    public List<Grid.Tile> GetBounds(Grid.Tile node, int range) {
+        List<Grid.Tile> neighbours = new List<Grid.Tile>();
+        
+        foreach (Grid.Tile tile in Grid.Instance.tiles)
+        {
+            if ((Mathf.Abs(node.x - tile.x) == range || Mathf.Abs(node.y - tile.y) == range)
+                || (Mathf.Abs(node.x - tile.x) < range || Mathf.Abs(node.y - tile.y) < range))
+                neighbours.Add(tile);
+        }
+
+        return neighbours;
     }
 
     void FindPath(Vector2Int startPos, Vector2Int targetPos)
@@ -76,6 +104,21 @@ public class Kim : CharacterController
             }
             
             openSet.Remove(currentTile);
+            
+            if (closestZombies.Count() > 0)
+            {
+                bool tooClose = false;
+                foreach (Zombie zombie in closestZombies)
+                {
+                    if (GetDistance(currentTile, Grid.Instance.GetClosest(zombie.transform.position)) < ContextRadius)
+                    {
+                        tooClose = true;
+                    }
+                }
+
+                if (tooClose)
+                    continue;
+            }
             closedSet.Add(currentTile);
 
             if (currentTile == targetTile)
@@ -88,7 +131,7 @@ public class Kim : CharacterController
             {
                 if (neighbour.occupied || closedSet.Contains(neighbour))
                     continue;
-                
+
                 int newCostNeighbour = currentTile.gCost + GetDistance(currentTile, neighbour);
                 if (newCostNeighbour < neighbour.gCost || !openSet.Contains(neighbour))
                 {
@@ -104,6 +147,27 @@ public class Kim : CharacterController
                 }
             }
         }
+
+        closestZombies.Clear();
+    }
+
+    bool CheckZombiesAgainstPath()
+    {
+        foreach (Grid.Tile tile in Grid.Instance.path)
+        {
+            foreach (Zombie zombie in Zombies)
+            {
+                if (!zombie)
+                    continue;
+                
+                if (GetDistance(tile, Grid.Instance.GetClosest(zombie.transform.position)) < ContextRadius)
+                {
+                    closestZombies.Add(zombie);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     void RetracePath(Grid.Tile startTile, Grid.Tile targetTile)
@@ -121,15 +185,32 @@ public class Kim : CharacterController
 
         Grid.Instance.path = path;
     }
+    
+    public Thread StartPathfinding(Vector2Int param1, Vector2Int param2) {
+        var t = new Thread(() => FindPath(param1, param2));
+        t.Start();
+        return t;
+    }
 
     public override void UpdateCharacter()
     {
         base.UpdateCharacter();
         
-        Zombie closest = GetClosest(GetContextByTag("Zombie"))?.GetComponent<Zombie>();
+        //Zombie closest = GetClosest(GetContextByTag("Zombie"))?.GetComponent<Zombie>();
+        
+        if (shouldUpdatePath)
+        {
+            StartPathfinding(new Vector2Int(myCurrentTile.x, myCurrentTile.y),
+                    new Vector2Int(Targets[TargetIndex].x, Targets[TargetIndex].y));
+        }
 
-        FindPath(new(myCurrentTile.x, myCurrentTile.y), new(Targets[TargetIndex].x, Targets[TargetIndex].y));
-        MoveTile(Grid.Instance.path[0]);
+        if (shouldUpdatePath)
+        {
+            shouldUpdatePath = false;
+            SetWalkBuffer(Grid.Instance.path);
+        }
+        
+        shouldUpdatePath = CheckZombiesAgainstPath();
     }
 
     Vector3 GetEndPoint()
@@ -168,8 +249,12 @@ public class Kim : CharacterController
     }
 
     public int getTargetIndex() => TargetIndex;
-    
-    public void setTargetIndex(int index) => TargetIndex = index;
+
+    public void setTargetIndex(int index)
+    {
+        shouldUpdatePath = true;
+        TargetIndex = index;
+    }
 
     public int getMaxIndex() => 2;
 }

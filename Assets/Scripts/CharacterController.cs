@@ -26,6 +26,8 @@ public class CharacterController : MonoBehaviour
     protected bool myReachedTile = false;
     protected bool myReachedDestination = false;
     protected List<Grid.Tile> myWalkBuffer = new List<Grid.Tile>();
+    
+    private List<Grid.Tile> neighbours = new List<Grid.Tile>();
 
     Transform model = null;
 
@@ -70,18 +72,13 @@ public class CharacterController : MonoBehaviour
 
         model.forward = newForward.normalized;
     }
+    
     public void MoveTile(Grid.Tile aTile)
     {
         if (myReachedTile && !aTile.occupied &&
             Grid.Instance.isReachable(myCurrentTile, aTile))
         {
-            if (gameObject.tag == "Zombie")
-            {
-                myCurrentTile.occupied = false;
-                aTile.occupied = true;
-            }
             myCurrentTile = aTile;
-            print(myCurrentTile.occupied);
         }
     }
 

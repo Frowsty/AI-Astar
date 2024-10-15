@@ -79,4 +79,6 @@ public class Zombie : CharacterController
 
             SetWalkBuffer(brains);
     }
+    
+    public Grid.Tile GetCurrentTile => myCurrentTile;
 }

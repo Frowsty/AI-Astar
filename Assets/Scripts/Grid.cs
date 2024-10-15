@@ -66,7 +66,7 @@ public class Grid : MonoBehaviour
 
     public List<Tile> tiles = new List<Tile>();
     public List<Tile> path = new List<Tile>();
-    public List<Tile> scannedTiles;
+    public List<Tile> scannedTiles = new List<Tile>();
 
     [EditorCools.Button]
     void BakeGrid()
@@ -130,26 +130,6 @@ public class Grid : MonoBehaviour
             }
         }
         return returnTile;
-    }
-    
-    public List<Tile> GetNeighbours(Tile node) {
-        List<Tile> neighbours = new List<Tile>();
-
-        for (int x = -1; x <= 1; x++) {
-            for (int y = -1; y <= 1; y++) {
-                if (x == 0 && y == 0)
-                    continue;
-
-                int checkX = node.x + x;
-                int checkY = node.y + y;
-
-                if (checkX >= 0 && checkX < Width && checkY >= 0 && checkY < Height) {
-                    neighbours.Add(TryGetTile(new(checkX, checkY)));
-                }
-            }
-        }
-
-        return neighbours;
     }
 
     public Tile TryGetTile(Vector2Int aPos)
