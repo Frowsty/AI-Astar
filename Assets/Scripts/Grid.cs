@@ -194,14 +194,25 @@ public class Grid : MonoBehaviour
             {
                 if (t.occupied) Gizmos.color = Color.red; else Gizmos.color = Color.green;
                 if (t.finishTile) Gizmos.color = Color.blue;
-                
+
                 if (scannedTiles != null)
+                {
                     if (scannedTiles.Contains(t))
                         Gizmos.color = Color.yellow;
-                
+                    
+                    if (scannedTiles.Contains(t) && t.fCost > 10000)
+                        Gizmos.color = Color.magenta;
+                }
+
                 if (path != null)
+                {
                     if (path.Contains(t))
                         Gizmos.color = Color.black;
+                    
+                    if (path.Contains(t) && t.fCost > 10000)
+                        Gizmos.color = Color.magenta;
+
+                }
 
                 AlphaColor();
                 Vector3 cubeSize = new Vector3(Spacing * VisualTileSize, 0.1f, Spacing * VisualTileSize);
