@@ -17,7 +17,7 @@ public class Kim : CharacterController
     public bool shouldUpdatePath = true;
     public int TargetIndex = 0;
     private List<Grid.Tile> path = new List<Grid.Tile>();
-    private List<Zombie> closestZombies = new List<Zombie>();
+    private List<Vector3> closestZombies = new List<Vector3>();
 
     public override void StartCharacter()
     {
@@ -108,9 +108,9 @@ public class Kim : CharacterController
             if (closestZombies.Count() > 0)
             {
                 bool tooClose = false;
-                foreach (Zombie zombie in closestZombies)
+                foreach (Vector3 zombie in closestZombies)
                 {
-                    if (GetDistance(currentTile, Grid.Instance.GetClosest(zombie.transform.position)) < ContextRadius)
+                    if (GetDistance(currentTile, Grid.Instance.GetClosest(zombie)) < ContextRadius)
                     {
                         tooClose = true;
                     }
@@ -162,7 +162,7 @@ public class Kim : CharacterController
                 
                 if (GetDistance(tile, Grid.Instance.GetClosest(zombie.transform.position)) < ContextRadius)
                 {
-                    closestZombies.Add(zombie);
+                    closestZombies.Add(zombie.transform.position);
                     return true;
                 }
             }
