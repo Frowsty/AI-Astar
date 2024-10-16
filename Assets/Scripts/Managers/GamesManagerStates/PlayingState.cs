@@ -92,15 +92,10 @@ public class PlayingState : State
             {
                 if (Vector3.Distance(b.transform.position, Kim.transform.position) < 1)
                 {
-                    int targetIndex = Kim.GetComponent<Kim>().getTargetIndex();
-                    targetIndex++;
-                    if (targetIndex > Kim.GetComponent<Kim>().getMaxIndex())
-                        targetIndex = Kim.GetComponent<Kim>().getMaxIndex();
-                    
-                    Kim.GetComponent<Kim>().setTargetIndex(targetIndex);
-                    
                     GamesManager.Instance.CollectBurger();
                     b.gameObject.SetActive(false);
+                    
+                    Kim.GetComponent<Kim>().updateTargetIndex();
                 }
             }
         }
