@@ -11,7 +11,7 @@ using Random = UnityEngine.Random;
 
 public class Kim : CharacterController
 {
-    [SerializeField] float ContextRadius = 5f;
+    [SerializeField] float ContextRadius = 4f;
     private Grid.Tile startTile;
     public Burger[] Burgers;
     private List<Grid.Tile> Targets = new List<Grid.Tile>();
@@ -25,7 +25,7 @@ public class Kim : CharacterController
     {
         base.StartCharacter();
 
-        ContextRadius = 5f;
+        ContextRadius = 4f;
         
         Targets.Add(Grid.Instance.GetClosest(Burgers[0].transform.position));
         Targets.Add(Grid.Instance.GetClosest(Burgers[1].transform.position));
