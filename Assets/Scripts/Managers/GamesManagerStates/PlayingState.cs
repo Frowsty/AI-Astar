@@ -96,6 +96,7 @@ public class PlayingState : State
                     b.gameObject.SetActive(false);
                     
                     Kim.GetComponent<Kim>().updateTargetIndex();
+                    Kim.GetComponent<Kim>().setSkipDistChecks(true);
                 }
             }
         }

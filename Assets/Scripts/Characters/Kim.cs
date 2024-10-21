@@ -17,9 +17,12 @@ public class Kim : CharacterController
     private List<Grid.Tile> Targets = new List<Grid.Tile>();
     private List<Zombie> Zombies = new List<Zombie>();
     private Zombie closestZombie;
+    private Zombie closestZombieToTarget;
     public bool shouldUpdatePath = true;
     public int TargetIndex = 0;
     private List<Grid.Tile> path = new List<Grid.Tile>();
+    private Grid.Tile currentTarget;
+    private bool skipChecks = true;
 
     public override void StartCharacter()
     {
@@ -30,6 +33,8 @@ public class Kim : CharacterController
         Targets.Add(Grid.Instance.GetClosest(Burgers[0].transform.position));
         Targets.Add(Grid.Instance.GetClosest(Burgers[1].transform.position));
         Targets.Add(Grid.Instance.GetFinishTile());
+        
+        currentTarget = Targets[TargetIndex];
 
         foreach (GameObject obj in GameObject.FindGameObjectsWithTag("Zombie"))
         {
@@ -161,12 +166,10 @@ public class Kim : CharacterController
 
     bool pathInaccessible()
     {
-        foreach (Grid.Tile tile in Grid.Instance.path)
-        {
-            if (tile.fCost > 100000)
-                return true;
-        }
-
+        if (!closestZombieToTarget)
+            return false;
+        if (isWithinDistance(currentTarget, closestZombieToTarget.GetCurrentTile, (int)ContextRadius))
+            return true;
         return false;
     }
     public override void UpdateCharacter()
@@ -174,17 +177,31 @@ public class Kim : CharacterController
         base.UpdateCharacter();
 
         closestZombie = GetClosest(GetContextByTag("Zombie"))?.GetComponent<Zombie>();
-
-        FindPath(new Vector2Int(Targets[TargetIndex].x, Targets[TargetIndex].y));
+        closestZombieToTarget = GetClosestToObject(GetContextByTag("Zombie"), Grid.Instance.WorldPos(currentTarget))?.GetComponent<Zombie>();
+    
+        if (closestZombie && isWithinDistance(myCurrentTile, closestZombie.GetCurrentTile, (int)ContextRadius) || skipDistChecks())
+        {
+            FindPath(new Vector2Int(Targets[TargetIndex].x, Targets[TargetIndex].y));
+            SetWalkBuffer(Grid.Instance.path);
+        }
 
         if (pathInaccessible())
         {
             Grid.Instance.path.Clear();
+            SetWalkBuffer(Grid.Instance.path);
             updateTargetIndex();
         }
-
-        SetWalkBuffer(Grid.Instance.path);
     }
+
+    bool skipDistChecks()
+    {
+        bool temp = skipChecks;
+        skipChecks = false;
+
+        return temp;
+    }
+    
+    public bool setSkipDistChecks(bool status) => skipChecks = true;
 
     Vector3 GetEndPoint()
     {
@@ -220,15 +237,33 @@ public class Kim : CharacterController
         }
         return Closest;
     }
+    
+    GameObject GetClosestToObject(GameObject[] aContext, Vector3 objectPosition)
+    {
+        float dist = float.MaxValue;
+        GameObject Closest = null;
+        foreach (GameObject z in aContext)
+        {
+            float curDist = Vector3.Distance(objectPosition, z.transform.position);
+            if (curDist < dist)
+            {
+                dist = curDist;
+                Closest = z;
+            }
+        }
+        return Closest;
+    }
 
     public void updateTargetIndex()
     {
+        int temp = TargetIndex;
         if (TargetIndex == 1 && Burgers[0].gameObject.activeSelf)
             TargetIndex = 0;
         else if (TargetIndex == 0 && Burgers[1].gameObject.activeSelf)
             TargetIndex = 1;
         else if (!Burgers[1].gameObject.activeSelf && !Burgers[0].gameObject.activeSelf)
             TargetIndex = 2;
+        currentTarget = Targets[TargetIndex];
     }
 
     public int getMaxIndex() => 2;
