@@ -94,9 +94,6 @@ public class PlayingState : State
                 {
                     GamesManager.Instance.CollectBurger();
                     b.gameObject.SetActive(false);
-                    
-                    Kim.GetComponent<Kim>().updateTargetIndex();
-                    Kim.GetComponent<Kim>().setSkipDistChecks(true);
                 }
             }
         }
@@ -110,7 +107,7 @@ public class PlayingState : State
     public void IncreaseSpeed()
     {
         Speed++;
-        if (Speed > 3) Speed = 1;
+        if (Speed > 6) Speed = 1;
         Time.timeScale = Speed;
         SpeedText.text = "";
         for (int i = 0; i < Speed; i++) SpeedText.text += ">";

@@ -5,36 +5,32 @@ using System.Linq;
 using System.Threading;
 using Unity.VisualScripting;
 using UnityEditor;
+using UnityEditor.VersionControl;
 using UnityEngine;
 using UnityEngine.XR;
 using Random = UnityEngine.Random;
 
 public class Kim : CharacterController
 {
-    [SerializeField] float ContextRadius = 4f;
+    [SerializeField] float ContextRadius = 6f;
     private Grid.Tile startTile;
-    public Burger[] Burgers;
-    private List<Grid.Tile> Targets = new List<Grid.Tile>();
     private List<Zombie> Zombies = new List<Zombie>();
-    private Zombie closestZombie;
-    private Zombie closestZombieToTarget;
-    public bool shouldUpdatePath = true;
-    public int TargetIndex = 0;
+    private List<Burger> Burgers = new List<Burger>();
     private List<Grid.Tile> path = new List<Grid.Tile>();
-    private Grid.Tile currentTarget;
-    private bool skipChecks = true;
+    public bool foundPath = false;
+    private Grid.Tile targetTile;
+    private Grid.Tile finishTile;
+    private float retryTimer = 0f;
+
+    private Pathfinding pathFinder = new Pathfinding();
+    private StateManager stateManager = new StateManager(); 
 
     public override void StartCharacter()
     {
+        pathFinder.setPlayer(this);
         base.StartCharacter();
 
-        ContextRadius = 4f;
-        
-        Targets.Add(Grid.Instance.GetClosest(Burgers[0].transform.position));
-        Targets.Add(Grid.Instance.GetClosest(Burgers[1].transform.position));
-        Targets.Add(Grid.Instance.GetFinishTile());
-        
-        currentTarget = Targets[TargetIndex];
+        ContextRadius = 6f;
 
         foreach (GameObject obj in GameObject.FindGameObjectsWithTag("Zombie"))
         {
@@ -44,164 +40,145 @@ public class Kim : CharacterController
                 Zombies.Add(zombie);
         }
         
-        closestZombie = GetClosest(GetContextByTag("Zombie"))?.GetComponent<Zombie>();
-
+        foreach (GameObject obj in GameObject.FindGameObjectsWithTag("Burger"))
+        {
+            Burger burger = obj.GetComponent<Burger>();
+            
+            if (burger != null)
+                Burgers.Add(burger);
+        }
         startTile = myCurrentTile;
+        finishTile = Grid.Instance.GetFinishTile();
+    }
 
-        TargetIndex = Random.Range(0, 2);
+    int getActiveBurgerCount()
+    {
+        int activeCount = 0;
+        foreach (Burger burger in Burgers)
+        {
+            if (burger.gameObject.activeSelf)
+                activeCount++;
+        }
+        return activeCount;
+    }
+
+    void CheckContext()
+    {
+        List<GameObject> contexts = GetContexts();
+
+        Tuple<StateManager.States, int> priorityState = new Tuple<StateManager.States, int>(StateManager.States.SEARCHING, stateManager.getStatePriority(StateManager.States.SEARCHING));
+        foreach (GameObject obj in contexts)
+        {
+            if (obj.CompareTag("Zombie") && priorityState.Item2 > stateManager.getStatePriority(StateManager.States.EVADE))
+                priorityState = new Tuple<StateManager.States, int>(StateManager.States.EVADE, stateManager.getStatePriority(StateManager.States.EVADE));
+            if (obj.CompareTag("Burger") && priorityState.Item2 > stateManager.getStatePriority(StateManager.States.TARGET))
+                priorityState = new Tuple<StateManager.States, int>(StateManager.States.TARGET, stateManager.getStatePriority(StateManager.States.TARGET));
+        }
+
+        stateManager.changeState(priorityState.Item1);
+        
+        resetTileCost();
+    }
+
+    void resetTileCost()
+    {
+        foreach (Grid.Tile tile in Grid.Instance.GetTiles())
+        {
+            tile.gCost = 0;
+            tile.hCost = 0;
+        }
+    }
+
+    void SetZombieRegion()
+    {
+        Zombie zombie = GetClosest(GetContextByTag("Zombie"))?.GetComponent<Zombie>();
+        if (!zombie || !pathFinder.isWithinDistance(myCurrentTile, zombie.GetCurrentTile, 6))
+            return;
+        
+        for (int x = zombie.GetCurrentTile.x - 3; x <= zombie.GetCurrentTile.x + 3; x++)
+        {
+            for (int y = zombie.GetCurrentTile.y - 3; y <= zombie.GetCurrentTile.y + 3; y++)
+            {
+                Grid.Tile temp = Grid.Instance.TryGetTile(new Vector2Int(x, y));
+                if (temp != null)
+                    temp.hCost = 1000000;
+            }
+        }
+    }
+
+    Grid.Tile closestBurger()
+    {
+        Burger burger = GetClosest(GetContextByTag("Burger"))?.GetComponent<Burger>();
+        if (!burger)
+            return myCurrentTile;
+        
+        Grid.Tile returnTile = Grid.Instance.GetClosest(burger.transform.position);
+
+        if (returnTile == null)
+            return myCurrentTile;
+        return returnTile;
     }
     
-    public List<Grid.Tile> GetNeighbours(Grid.Tile tile)
+    bool avoidFinish()
     {
-        Vector2Int[] neighbourDirs = {
-            new(1, 0),
-            new(-1, 0),
-            new(0, 1),
-            new(0, -1),
-            new(1, 1),
-            new(-1, -1),
-            new(-1, 1),
-            new(1, -1),
-            
-        };
-        
-        List<Grid.Tile> neighbours = new List<Grid.Tile>();
-        foreach (var dir in neighbourDirs)
+        return getActiveBurgerCount() > 0 && pathFinder.isWithinDistance(myCurrentTile, finishTile, 4);
+    }
+
+    bool isPathWalkable()
+    {
+        foreach (Grid.Tile tile in Grid.Instance.path)
         {
-            Grid.Tile temp = Grid.Instance.TryGetTile(new Vector2Int(tile.x + dir.x, tile.y + dir.y));
-
-            if (temp != null)
-                neighbours.Add(temp);
+            if (tile.hCost == 1000000)
+                return false;
         }
-        
-        return neighbours;
+
+        return true;
     }
-    int GetDistance(Grid.Tile tile1, Grid.Tile tile2)
-    {
-        int distanceX = Mathf.Abs(tile1.x - tile2.x);
-        int distanceY = Mathf.Abs(tile1.y - tile2.y);
-        
-        if (distanceX > distanceY)
-            return 14 * distanceY + 10 * (distanceX - distanceY);
-        else
-            return 14 * distanceX + 10 * (distanceY - distanceX);
-    }
-
-    void FindPath(Vector2Int targetPos)
-    {
-        Grid.Instance.scannedTiles.Clear();
-        Grid.Tile startTile = myCurrentTile;
-        Grid.Tile targetTile = Grid.Instance.TryGetTile(targetPos);
-        
-        List<Grid.Tile> openSet = new List<Grid.Tile>();
-        List<Grid.Tile> closedSet = new List<Grid.Tile>();
-        
-        openSet.Add(startTile);
-
-        while (openSet.Count > 0)
-        {
-            Grid.Tile currentTile = openSet[0];
-            for (int i = 1; i < openSet.Count; i++)
-            {
-                if (openSet[i].fCost < currentTile.fCost || openSet[i].fCost == currentTile.fCost && openSet[i].hCost < currentTile.hCost)
-                    currentTile = openSet[i];
-            }
-            
-            openSet.Remove(currentTile);
-            closedSet.Add(currentTile);
-
-            if (currentTile == targetTile)
-            {
-                RetracePath(startTile, targetTile);
-                return;
-            }
-
-            foreach (Grid.Tile neighbour in GetNeighbours(currentTile))
-            {
-                if (neighbour.occupied || closedSet.Contains(neighbour))
-                    continue;
-
-                int newCostNeighbour = currentTile.gCost + GetDistance(currentTile, neighbour);
-                if (newCostNeighbour < neighbour.gCost || !openSet.Contains(neighbour))
-                {
-                    neighbour.gCost = newCostNeighbour;
-                    neighbour.hCost = GetDistance(neighbour, targetTile);
-                    neighbour.parent = currentTile;
-                    
-                    if (closestZombie)
-                        if (isWithinDistance(neighbour, closestZombie.GetCurrentTile, (int)ContextRadius))
-                            neighbour.hCost = 1000000;
-
-                    if (!openSet.Contains(neighbour))
-                    {
-                        openSet.Add(neighbour);
-                        Grid.Instance.scannedTiles = closedSet;
-                    }
-                }
-            }
-        }
-    }
-
-    bool isWithinDistance(Grid.Tile tile1, Grid.Tile tile2, int distance)
-    {
-        return Mathf.Abs(tile1.x - tile2.x) < distance &&
-               Mathf.Abs(tile1.y - tile2.y) < distance;
-    }
-
-    void RetracePath(Grid.Tile startTile, Grid.Tile targetTile)
-    {
-        List<Grid.Tile> path = new List<Grid.Tile>();
-        Grid.Tile currentTile = targetTile;
-
-        while (currentTile != startTile)
-        {
-            path.Add(currentTile);
-            currentTile = currentTile.parent;
-        }
-        
-        path.Reverse();
-
-        Grid.Instance.path = path;
-    }
-
-    bool pathInaccessible()
-    {
-        if (!closestZombieToTarget)
-            return false;
-        if (isWithinDistance(currentTarget, closestZombieToTarget.GetCurrentTile, (int)ContextRadius))
-            return true;
-        return false;
-    }
+    
     public override void UpdateCharacter()
     {
         base.UpdateCharacter();
+        
+        CheckContext();
 
-        closestZombie = GetClosest(GetContextByTag("Zombie"))?.GetComponent<Zombie>();
-        closestZombieToTarget = GetClosestToObject(GetContextByTag("Zombie"), Grid.Instance.WorldPos(currentTarget))?.GetComponent<Zombie>();
-    
-        if (closestZombie && isWithinDistance(myCurrentTile, closestZombie.GetCurrentTile, (int)ContextRadius) || skipDistChecks())
+        switch (stateManager.getCurrentState())
         {
-            FindPath(new Vector2Int(Targets[TargetIndex].x, Targets[TargetIndex].y));
+            case StateManager.States.EVADE:
+                SetZombieRegion();
+                goto case StateManager.States.SEARCHING;
+            case StateManager.States.SEARCHING:
+                if (!foundPath || myCurrentTile.isEqual(targetTile) || avoidFinish() || !isPathWalkable())
+                {
+                    do
+                    {
+                        targetTile = Grid.Instance.GetTiles()[Random.Range(0, Grid.Instance.tiles.Count)];
+                    } while (targetTile.occupied);
+                }
+
+                if (getActiveBurgerCount() == 0)
+                    targetTile = finishTile;
+                break;
+            case StateManager.States.TARGET:
+                SetZombieRegion();
+                if (!isPathWalkable())
+                    goto case StateManager.States.SEARCHING;
+                if (retryTimer >= 3f)
+                {
+                    retryTimer = 0f;
+                    targetTile = closestBurger();
+                }
+
+                break;
+        }
+
+        if (targetTile != null)
+        {
+            foundPath = pathFinder.FindPath(new Vector2Int(targetTile.x, targetTile.y));
             SetWalkBuffer(Grid.Instance.path);
         }
 
-        if (pathInaccessible())
-        {
-            Grid.Instance.path.Clear();
-            SetWalkBuffer(Grid.Instance.path);
-            updateTargetIndex();
-        }
+        retryTimer += Time.fixedDeltaTime;
     }
-
-    bool skipDistChecks()
-    {
-        bool temp = skipChecks;
-        skipChecks = false;
-
-        return temp;
-    }
-    
-    public bool setSkipDistChecks(bool status) => skipChecks = true;
 
     Vector3 GetEndPoint()
     {
@@ -220,6 +197,17 @@ public class Kim : CharacterController
             }
         }
         return returnContext.ToArray();
+    }
+
+    List<GameObject> GetContexts()
+    {
+        Collider[] context = Physics.OverlapSphere(transform.position, ContextRadius);
+        List<GameObject> returnContext = new List<GameObject>();
+        foreach (Collider c in context)
+        {
+            returnContext.Add(c.gameObject);
+        }
+        return returnContext;
     }
 
     GameObject GetClosest(GameObject[] aContext)
@@ -253,18 +241,6 @@ public class Kim : CharacterController
         }
         return Closest;
     }
-
-    public void updateTargetIndex()
-    {
-        int temp = TargetIndex;
-        if (TargetIndex == 1 && Burgers[0].gameObject.activeSelf)
-            TargetIndex = 0;
-        else if (TargetIndex == 0 && Burgers[1].gameObject.activeSelf)
-            TargetIndex = 1;
-        else if (!Burgers[1].gameObject.activeSelf && !Burgers[0].gameObject.activeSelf)
-            TargetIndex = 2;
-        currentTarget = Targets[TargetIndex];
-    }
-
-    public int getMaxIndex() => 2;
+    
+    public Grid.Tile getCurrentTile() => myCurrentTile;
 }

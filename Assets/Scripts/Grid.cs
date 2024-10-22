@@ -62,6 +62,11 @@ public class Grid : MonoBehaviour
         public int fCost { get { return gCost + hCost; } }
 
         public Tile parent;
+
+        public bool isEqual(Tile tile)
+        {
+            return (x == tile.x && y == tile.y);
+        }
     }
 
     public List<Tile> tiles = new List<Tile>();
@@ -197,15 +202,16 @@ public class Grid : MonoBehaviour
 
                 if (scannedTiles != null)
                 {
-                    if (scannedTiles.Contains(t) && t.fCost > 10000)
-                        Gizmos.color = Color.magenta;
-                    else if (scannedTiles.Contains(t))
+                    if (scannedTiles.Contains(t))
                         Gizmos.color = Color.yellow;
                 }
 
                 if (path != null)
                     if (path.Contains(t))
                         Gizmos.color = Color.black;
+
+                if (t.fCost > 10000)
+                    Gizmos.color = Color.magenta;
                 
                 
                 AlphaColor();
