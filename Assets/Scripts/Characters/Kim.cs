@@ -13,14 +13,13 @@ using Random = UnityEngine.Random;
 public class Kim : CharacterController
 {
     [SerializeField] float ContextRadius = 6f;
-    private Grid.Tile startTile;
     private List<Zombie> Zombies = new List<Zombie>();
     private List<Burger> Burgers = new List<Burger>();
     private List<Grid.Tile> path = new List<Grid.Tile>();
-    public bool foundPath = false;
     private Grid.Tile targetTile;
     private Grid.Tile finishTile;
     private float retryTimer = 0f;
+    public bool foundPath = false;
 
     private Pathfinding pathFinder = new Pathfinding();
     private StateManager stateManager = new StateManager(); 
@@ -47,7 +46,7 @@ public class Kim : CharacterController
             if (burger != null)
                 Burgers.Add(burger);
         }
-        startTile = myCurrentTile;
+
         finishTile = Grid.Instance.GetFinishTile();
     }
 
@@ -62,7 +61,7 @@ public class Kim : CharacterController
         return activeCount;
     }
 
-    void CheckContext()
+    void checkContext()
     {
         List<GameObject> contexts = GetContexts();
 
@@ -89,7 +88,7 @@ public class Kim : CharacterController
         }
     }
 
-    void SetZombieRegion()
+    void setZombieRegion()
     {
         Zombie zombie = GetClosest(GetContextByTag("Zombie"))?.GetComponent<Zombie>();
         if (!zombie || !pathFinder.isWithinDistance(myCurrentTile, zombie.GetCurrentTile, 6))
@@ -139,12 +138,12 @@ public class Kim : CharacterController
     {
         base.UpdateCharacter();
         
-        CheckContext();
+        checkContext();
 
         switch (stateManager.getCurrentState())
         {
             case StateManager.States.EVADE:
-                SetZombieRegion();
+                setZombieRegion();
                 goto case StateManager.States.SEARCHING;
             case StateManager.States.SEARCHING:
                 if (!foundPath || myCurrentTile.isEqual(targetTile) || avoidFinish() || !isPathWalkable())
@@ -159,7 +158,7 @@ public class Kim : CharacterController
                     targetTile = finishTile;
                 break;
             case StateManager.States.TARGET:
-                SetZombieRegion();
+                setZombieRegion();
                 if (!isPathWalkable())
                     goto case StateManager.States.SEARCHING;
                 if (retryTimer >= 3f)
@@ -173,7 +172,7 @@ public class Kim : CharacterController
 
         if (targetTile != null)
         {
-            foundPath = pathFinder.FindPath(new Vector2Int(targetTile.x, targetTile.y));
+            foundPath = pathFinder.findPath(new Vector2Int(targetTile.x, targetTile.y));
             SetWalkBuffer(Grid.Instance.path);
         }
 

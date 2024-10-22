@@ -7,7 +7,7 @@ public class Pathfinding
     private Kim player;
 
     public void setPlayer(Kim player) => this.player = player;
-    public List<Grid.Tile> GetNeighbours(Grid.Tile tile)
+    public List<Grid.Tile> getNeighbours(Grid.Tile tile)
     {
         Vector2Int[] neighbourDirs = {
             new(1, 0),
@@ -33,15 +33,15 @@ public class Pathfinding
         return neighbours;
     }
     
-    public int GetDistance(Grid.Tile tile1, Grid.Tile tile2)
+    public int getDistance(Grid.Tile tile1, Grid.Tile tile2)
     {
         int distanceX = Mathf.Abs(tile1.x - tile2.x);
         int distanceY = Mathf.Abs(tile1.y - tile2.y);
         
         if (distanceX > distanceY)
             return 14 * distanceY + 10 * (distanceX - distanceY);
-        else
-            return 14 * distanceX + 10 * (distanceY - distanceX);
+        
+        return 14 * distanceX + 10 * (distanceY - distanceX);
     }
     
     public bool isWithinDistance(Grid.Tile tile1, Grid.Tile tile2, int distance)
@@ -50,7 +50,7 @@ public class Pathfinding
                Mathf.Abs(tile1.y - tile2.y) < distance;
     }
 
-    void RetracePath(Grid.Tile startTile, Grid.Tile targetTile)
+    void retracePath(Grid.Tile startTile, Grid.Tile targetTile)
     {
         List<Grid.Tile> path = new List<Grid.Tile>();
         Grid.Tile currentTile = targetTile;
@@ -66,7 +66,7 @@ public class Pathfinding
         Grid.Instance.path = path;
     }
     
-    public bool FindPath(Vector2Int targetPos)
+    public bool findPath(Vector2Int targetPos)
     {
         Grid.Instance.scannedTiles.Clear();
         Grid.Tile startTile = player.getCurrentTile();
@@ -91,27 +91,23 @@ public class Pathfinding
 
             if (currentTile == targetTile)
             {
-                RetracePath(startTile, targetTile);
+                retracePath(startTile, targetTile);
                 return true;
             }
 
-            foreach (Grid.Tile neighbour in GetNeighbours(currentTile))
+            foreach (Grid.Tile neighbour in getNeighbours(currentTile))
             {
                 if (neighbour.occupied || closedSet.Contains(neighbour))
                     continue;
 
-                int newCostNeighbour = currentTile.gCost + GetDistance(currentTile, neighbour);
+                int newCostNeighbour = currentTile.gCost + getDistance(currentTile, neighbour);
                 if (newCostNeighbour < neighbour.gCost || !openSet.Contains(neighbour))
                 {
                     neighbour.gCost = newCostNeighbour;
                     if (neighbour.hCost < 1000000)
-                        neighbour.hCost = GetDistance(neighbour, targetTile);
+                        neighbour.hCost = getDistance(neighbour, targetTile);
                     neighbour.parent = currentTile;
-                    /*
-                    if (closestZombie)
-                        if (isWithinDistance(neighbour, closestZombie.GetCurrentTile, (int)ContextRadius))
-                            neighbour.hCost = 1000000;
-                    */
+
                     if (!openSet.Contains(neighbour))
                     {
                         openSet.Add(neighbour);
